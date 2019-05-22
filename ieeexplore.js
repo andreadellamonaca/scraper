@@ -724,47 +724,64 @@ async function getSingleRef(page) {
                 let art_id = element["idArticolo"];
                 if (!(art_url.includes('arnumber'))) {
                     await page.goto(art_url, {waitUntil: 'load', timeout: 0});
-                    await page.waitForSelector('div.ref-links-container', {timeout: 0});
-                    const num_ref = await page.evaluate(() => {
-                        return document.getElementsByClassName('ref-links-container').length;
+                    let tabs = await page.evaluate(() => {
+                        return document.getElementsByClassName('document-tab-link').length;
                     });
-                    let found = 0;
-                    for (let index = num_ref/2; index < num_ref; index++) {
-                        let findable = await page.evaluate((num) => {
-                            return document.getElementsByClassName('ref-links-container')[num].innerText.includes('Full Text');
-                        }, index);
-                        if (findable) {
-                            let arnumber = await page.evaluate((ind) => {
-                                return document.getElementsByClassName('stats-reference-link-fullTextPdf')[ind].href.split('arnumber=')[1];
-                            }, found);
-                            found++;
-                            processArticle(arnumber, art_id);
-                        } else {
-                            const info = await page.evaluate((ind) => {
-                                return document.getElementsByClassName('col-12 u-overflow-wrap-break-word')[ind].childNodes[3].innerText.split('"');
-                            }, index);
-                            if (info.length == 3) {
-                                let title = info[1];
-                                let y_index = info[2].split(', ').length - 1;
-                                let year = info[2].split(', ')[y_index].replace(/[^0-9]/g, '');
-                                let art_search = new articoloModel(undefined, title, undefined, undefined, undefined, undefined, year, undefined, undefined);
-                                db.query(art_search.getArticoloByTitolo_Anno(), (err, data) => {
-                                    if(err) {console.log(err);}
-                                    if(!err) {
-                                        if (data[0] != undefined) {
-                                            let relazione = new citatodaModel(art_id, data[0].idArticolo);
-                                            db.query(relazione.save(), (err, data) => {
-                                                if(err) {console.log(err);}
-                                                if(!err) {
-                                                    console.log('relazione salvata');
-                                                }
-                                            });
-                                        }
-                                    }
-                                });
-                            }
+                    let refloc = false;
+                    for (let j = 0; j < tabs; j++) {
+                        let tabs = await page.evaluate((num) => {
+                            return document.getElementsByClassName('document-tab-link')[num].innerText.includes('References');
+                        }, j);
+                        if (refloc == false && tabs == true) {
+                            refloc = true;
                         }
                     }
+                    if (refloc == true) {
+                        await page.waitForSelector('div.ref-links-container', {timeout: 0});
+                        const num_ref = await page.evaluate(() => {
+                            console.log(document.getElementsByClassName('ref-links-container'));
+                            console.log(document.getElementsByClassName('ref-links-container').length);
+                            console.log(document.getElementsByClassName('ref-links-container').length/2);
+                            return document.getElementsByClassName('ref-links-container').length/2;
+                        });
+                        let found = 0;
+                        for (let index = 0; index < num_ref; index++) {
+                            let findable = await page.evaluate((num) => {
+                                return document.getElementsByClassName('ref-links-container')[num].innerText.includes('Full Text');
+                            }, index);
+                            if (findable) {
+                                let arnumber = await page.evaluate((ind) => {
+                                    return document.getElementsByClassName('stats-reference-link-fullTextPdf')[ind].href.split('arnumber=')[1];
+                                }, found);
+                                found++;
+                                processArticle(arnumber, art_id);
+                            } else {
+                                const info = await page.evaluate((ind) => {
+                                    return document.getElementsByClassName('col-12 u-overflow-wrap-break-word')[ind].childNodes[3].innerText.split('"');
+                                }, index);
+                                if (info.length == 3) {
+                                    let title = info[1];
+                                    let y_index = info[2].split(', ').length - 1;
+                                    let year = info[2].split(', ')[y_index].replace(/[^0-9]/g, '');
+                                    let art_search = new articoloModel(undefined, title, undefined, undefined, undefined, undefined, year, undefined, undefined);
+                                    db.query(art_search.getArticoloByTitolo_Anno(), (err, data) => {
+                                        if(err) {console.log(err);}
+                                        if(!err) {
+                                            if (data[0] != undefined) {
+                                                let relazione = new citatodaModel(art_id, data[0].idArticolo);
+                                                db.query(relazione.save(), (err, data) => {
+                                                    if(err) {console.log(err);}
+                                                    if(!err) {
+                                                        console.log('relazione salvata');
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        } 
+                    } 
                 }
             }
         }
@@ -773,13 +790,12 @@ async function getSingleRef(page) {
 
 
 /*
-const apiurl = 'http://ieeexploreapi.ieee.org/api/v1/search/articles?apikey=esvghg4gbrwh36tzev6xumhs&format=json&max_records=2&start_record=1&sort_order=asc&sort_field=article_number&article_title=remote+laboratory'
+const apiurl = 'http://ieeexploreapi.ieee.org/api/v1/search/articles?apikey=esvghg4gbrwh36tzev6xumhs&format=json&max_records=10&start_record=1&sort_order=asc&sort_field=article_number&article_title=remote+laboratory'
 db.open();
 req.open('GET', apiurl, true);
 req.send();
 req.onreadystatechange = processRequest;
 */
-
 
 db.open();
 (async () => {

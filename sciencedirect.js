@@ -35,7 +35,7 @@ function getAbstractbyDOI (doi) {
 function processRequest(e) {
     if (req.readyState == 4 && req.status == 200) {
         var response = JSON.parse(req.responseText)["search-results"]["entry"];
-        for (let index = 0; index < 1/*response.length*/; index++) {
+        for (let index = 0; index < response.length; index++) {
             const element = response[index];
             let doi = element["prism:doi"];
             getAbstractbyDOI(doi).then(function (res) {
@@ -121,7 +121,7 @@ async function getKW(page) {
             let art_url = element["URL_Articolo"];
             let art_id = element["idArticolo"];
             await page.goto(art_url, {waitUntil: 'load', timeout: 0});
-            await page.waitForSelector('dl.references', {timeout: 0});
+            //await page.waitForSelector('dl.references', {timeout: 0});
             const kw_array = await page.evaluate(() => {
                 let kws = [];
                 let num_kws = document.getElementsByClassName('keyword').length;
@@ -154,17 +154,17 @@ async function getKW(page) {
         }
     });
 }
-
-const apiurl = 'https://api.elsevier.com/content/search/sciencedirect?query=remote%20laboratory&apiKey=7f59af901d2d86f78a1fd60c1bf9426a&count=100'
+/*
+const apiurl = 'https://api.elsevier.com/content/search/sciencedirect?query=remote%20laboratory&apiKey=7f59af901d2d86f78a1fd60c1bf9426a&count=20'
 db.open();
 req.open('GET', apiurl, true);
 req.send();
 req.onreadystatechange = processRequest;
+*/
 
-/*
 db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
     await getKW(page);
-})();*/
+})();

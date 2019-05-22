@@ -84,9 +84,9 @@ async function getRefData(page, idCita) {
                 return orgs;
             },index);
             const abstract = await page.evaluate((num) => {
-                const abstract = document.getElementsByClassName('paper')[num].childNodes[11].innerText;
+                let abstract = document.getElementsByClassName('paper')[num].childNodes[11].innerText;
                 if (abstract.length == 0) {
-                    abstract = 'non presente';
+                    abstract = '';
                 }
                 return abstract;
             },index+1);
@@ -114,7 +114,7 @@ async function getRefData(page, idCita) {
                     let conferenza = new conferenzaModel(undefined, pub_title, "assente", "mancante");
                     db.query(conferenza.getConferenzaByNome(), (err, data) => {
                         if (data.length == 0) {
-                            let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", year, 2, 1);
+                            let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "undefined", "assente", "mancante", year, 2, 1);
                             db.query(articolo.saveNew(), (err, data) => {
                                 if(err) {console.log(index +', Salvataggio articolo: '+err);}
                                 if(!err) {
@@ -161,7 +161,7 @@ async function getRefData(page, idCita) {
                                             });
                                         }
                                         for (let i = 0; i < autori.length; i++) {
-                                            let autore = new autoreModel(undefined, autori[i]);
+                                            let autore = new autoreModel(undefined, autori[i].replace(/([0-9])/g, ""));
                                             db.query(autore.saveNew(), (err, data)=> {
                                                 if(err) {console.log(i +', Salvataggio autore: '+err);}
                                                 if(!err) {
@@ -280,7 +280,7 @@ async function getRefData(page, idCita) {
                                 }
                             });
                         } else {
-                            let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", year, data[0].idConferenza, 1);
+                            let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "undefined", "assente", "mancante", year, data[0].idConferenza, 1);
                             db.query(articolo.saveNew(), (err, data) => {
                                 if(err) {console.log(index +', Salvataggio articolo: '+err);}
                                 if(!err) {
@@ -327,7 +327,7 @@ async function getRefData(page, idCita) {
                                             });
                                         }
                                         for (let i = 0; i < autori.length; i++) {
-                                            let autore = new autoreModel(undefined, autori[i]);
+                                            let autore = new autoreModel(undefined, autori[i].replace(/([0-9])/g, ""));
                                             db.query(autore.saveNew(), (err, data)=> {
                                                 if(err) {console.log(i +', Salvataggio autore: '+err);}
                                                 if(!err) {
@@ -448,7 +448,7 @@ async function getRefData(page, idCita) {
                         }
                     });
                 } else {
-                    let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", year, 2, data[0].idGiornale);
+                    let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "undefined", "assente", "mancante", year, 2, data[0].idGiornale);
                     db.query(articolo.saveNew(), (err, data) => {
                         if(err) {console.log(index +', Salvataggio articolo: '+err);}
                         if(!err) {
@@ -495,7 +495,7 @@ async function getRefData(page, idCita) {
                                     });
                                 }
                                 for (let i = 0; i < autori.length; i++) {
-                                    let autore = new autoreModel(undefined, autori[i]);
+                                    let autore = new autoreModel(undefined, autori[i].replace(/([0-9])/g, ""));
                                     db.query(autore.saveNew(), (err, data)=> {
                                         if(err) {console.log(i +', Salvataggio autore: '+err);}
                                         if(!err) {
@@ -1224,7 +1224,7 @@ async function get(page) {
 db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
-    const page = await browser.newPage();
+    const page = await browser.newPage();/*
     //for (let res = 0; res < 5; res++) {
         let res = 0;
         let skip = res*10
@@ -1232,5 +1232,5 @@ db.open();
         await page.waitForSelector('div.paper', {timeout: 0});
         await get(page);
     //}
-    //await getRef(page);
+    */await getRef(page);
 })();

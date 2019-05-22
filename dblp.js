@@ -25,7 +25,7 @@ request(options, function (error, response, body) {
     if (error) throw new Error(error);
 
     let result = JSON.parse(body)["result"]["hits"]["hit"];
-    for (let index = 0; index < result.length; index++) {
+    for (let index = 0; index < 50; index++) {
         let title = result[index]["info"]["title"].replace(regex, escaper);
         let year = result[index]["info"]["year"];
         let abstract = "";
@@ -46,12 +46,13 @@ request(options, function (error, response, body) {
                                 if(!err) {
                                     let url = result[index]["info"]["url"];
                                     db.query(articolo.getArticoloByTitolo_Anno(), (err, data) => {
+                                        if(err) {console.log('Salvataggio presentein: '+err);}
                                         if(!err) {
                                             let presente = new presenteinModel(data[0].idArticolo, 2, url);
                                             db.query(presente.save(), (err, data) => {
                                                 if(err) {console.log('Salvataggio Articolo-repo: '+err);}
                                                 if(!err) {
-                                                    //console.log('Articolo-repo salvato');
+                                                    console.log('Articolo-repo salvato');
                                                 }
                                             });
                                         }
@@ -122,12 +123,13 @@ request(options, function (error, response, body) {
                                 if(!err) {
                                     let url = result[index]["info"]["url"];
                                     db.query(articolo.getArticoloByTitolo_Anno(), (err, data) => {
+                                        if(err) {console.log('Salvataggio presentein: '+err);}
                                         if(!err) {
                                             let presente = new presenteinModel(data[0].idArticolo, 2, url);
                                             db.query(presente.save(), (err, data) => {
                                                 if(err) {console.log('Salvataggio Articolo-repo: '+err);}
                                                 if(!err) {
-                                                    //console.log('Articolo-repo salvato');
+                                                    console.log('Articolo-repo salvato');
                                                 }
                                             });
                                         }

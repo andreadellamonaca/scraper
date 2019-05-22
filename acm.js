@@ -29,7 +29,7 @@ function delay(i, timer) {
 }
 
 async function get(browser, page) {
-    for (let index = 0; index < 20; index++) {
+    for (let index = 5; index < 20; index++) {
         await delay(index, 1000);
         const title = await page.evaluate((num) => {
             return document.getElementsByClassName('title')[num].innerText;
@@ -77,10 +77,10 @@ async function get(browser, page) {
             return document.getElementsByClassName('tabbody')[0].innerText;
         });
         await detail.close();
-        let giornale = new giornaleModel(undefined, pub_title);
+        let giornale = new giornaleModel(undefined, pub_title.replace(regex, escaper));
         db.query(giornale.getGiornaleByTitolo(), (err, data) => {
             if (data.length == 0) {
-                let conferenza = new conferenzaModel(undefined, pub_title, "assente", anno_publ);
+                let conferenza = new conferenzaModel(undefined, pub_title.replace(regex, escaper), "assente", anno_publ);
                 db.query(conferenza.getConferenzaByNome(), (err, data) => {
                     if (data.length == 0) {
                         let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", anno, 2, 1);
@@ -318,10 +318,11 @@ db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
-    for (let res = 0; res < 5; res++) {
+    //for (let res = 0; res < 5; res++) {
+        let res = 0;
         let num_skip = res*20;
-        await page.goto(url+skip+num_skip, {waitUntil: 'load', timeout: 0});
+        await page.goto(url+next+num_skip, {waitUntil: 'load', timeout: 0});
         await page.waitForSelector('div.details', {timeout: 0});
         await get(browser, page);
-    }
+    //}
 })();
