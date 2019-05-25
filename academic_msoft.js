@@ -82,7 +82,7 @@ async function getRefData(page, idCita) {
                     }
                 }
                 return orgs;
-            },index);
+            },index+1);
             const abstract = await page.evaluate((num) => {
                 let abstract = document.getElementsByClassName('paper')[num].childNodes[11].innerText;
                 if (abstract.length == 0) {
@@ -92,11 +92,22 @@ async function getRefData(page, idCita) {
             },index+1);
             await page.evaluate((num) => {
                 let kw_click = document.getElementsByClassName('show-more au-target');
+                let offset1 = 0;
+                for (let i = 0; i < num; i++) {
+                    if (!(document.getElementsByClassName('tag-cloud')[i+1].innerText.includes('+'))) {
+                        if (!(document.getElementsByClassName('tag-cloud')[i+1].innerText.includes('LESS'))) {
+                            offset1++;
+                            console.log(offset1);
+                        }
+                    }
+                }
+                console.log(num +' '+ offset1);
                 if (document.getElementsByClassName('tag-cloud')[num+1].innerText.includes('+')){
+                    console.log(num +' cè il più');
                     if (kw_click.length < 12) {
-                        kw_click[num].click();    
+                        kw_click[num-offset1].click();    
                     } else {
-                        kw_click[num+5].click();
+                        kw_click[num+5-offset1].click();
                     }
                 }
             }, index);
@@ -624,31 +635,21 @@ async function getRef(page) {
     db.query(articolo.getArticoloFromMsoftAcademic(), async(err, data) => {
         for (const element of data) {
             let art_url = element["URL_Articolo"];
-            let art_id = element["idArticolo"];
+            let idCita = element["idArticolo"];
             await page.goto(art_url, {waitUntil: 'load', timeout: 0});
             await page.waitForSelector('div.paper', {timeout: 0});
             const doi = await page.evaluate(() => {
                 return document.getElementsByClassName('venueDetails')[0].innerText.split('DOI: ')[1];
             });
-            let art = new articoloModel(art_id, '', '', doi, '', '', '', '', '');
+            let art = new articoloModel(idCita, '', '', doi, '', '', '', '', '');
             db.query(art.savedoi(), (err, data) => {
                 if (!err) {
                     console.log('DOI salvato');
                 }
             });
-            let next = true;
-            while (next) {
-                await getRefData(page, art_id);
-                page.evaluate(() => {
-                    next_page = document.getElementsByClassName('icon-up right au-target');
-                    if (next_page.length > 0) {
-                        next_page[0].click();
-                    } else {
-                        next = false;
-                    }
-                });
-                await delay(1, 3000);
-            }
+            await delay(1,5000);
+            await page.waitForSelector('div.results');
+            await getRefData(page, idCita);
         }
     });
 }
@@ -1224,13 +1225,14 @@ async function get(page) {
 db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
-    const page = await browser.newPage();/*
-    //for (let res = 0; res < 5; res++) {
-        let res = 0;
+    const page = await browser.newPage();
+    /*
+    //for (let res = 0; res < 2; res++) {
+        //let res = 0;
         let skip = res*10
         await page.goto(url+skip, {waitUntil: 'load', timeout: 0});
         await page.waitForSelector('div.paper', {timeout: 0});
         await get(page);
     //}
-    */await getRef(page);
+    //*/await getRef(page);
 })();

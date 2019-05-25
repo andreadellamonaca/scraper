@@ -25,7 +25,7 @@ request(options, function (error, response, body) {
     if (error) throw new Error(error);
 
     let result = JSON.parse(body)["result"]["hits"]["hit"];
-    for (let index = 0; index < 50; index++) {
+    for (let index = 0; index < 80; index++) {
         let title = result[index]["info"]["title"].replace(regex, escaper);
         let year = result[index]["info"]["year"];
         let abstract = "";
