@@ -1,5 +1,3 @@
-const rp = require('request-promise');
-const $ = require('cheerio');
 const puppeteer = require('puppeteer');
 const db = require("./dbConnection");
 const autoreModel = require('./query/queries_autore');
@@ -41,599 +39,583 @@ async function getRefData(page, idCita) {
             }
         }
     });
+    await page.evaluate(() => {
+        let kw_click = document.getElementsByClassName('show-more au-target');
+        for (let k = 0; k < kw_click.length; k++) {
+            kw_click[k].click();
+        }
+    });
     const res = await page.evaluate(() => {
         return document.getElementsByClassName('paper').length;
     });
     for (let index = 0; index < res-1; index++) {
-        await delay(index, 1000);
+        await delay(index, 500);
         const title = await page.evaluate((num) => {
             return document.getElementsByClassName('title au-target')[num].innerText;
         },index);
-        if (!(title.includes('[book]'))) {
-            const doc_url = await page.evaluate((num) => {
-                return document.getElementsByClassName('title au-target')[num].href;
-            },index);
-            const year = await page.evaluate((num) => {
-                return document.getElementsByClassName('publication au-target')[num].innerText.split(' ')[0];
-            },index+1);
-            const pub_title = await page.evaluate((num) => {
-                return document.getElementsByClassName('publication au-target')[num].innerText.replace(/([0-9])/g, "").replace(' ', '');
-            },index);
-            const autori = await page.evaluate((num) => {
-                const a_list = document.getElementsByTagName('ma-author-string-collection')[num].getElementsByClassName('author-item');
-                let aut_list = [];
-                for (let i = 0; i < a_list.length; i++) {
-                    aut_list.push(a_list[i].innerText.replace(',',''));
-                }
-                return aut_list;
-            },index+1);
-            const organizzazioni = await page.evaluate((num) => {
-                let orgs = [];
-                if (document.getElementsByClassName('paper')[num].innerHTML.includes('class="institutions"')) {
-                    let offset = 0;
-                    for (let i = 0; i < num; i++) {
-                        if (!(document.getElementsByClassName('results')[1].innerHTML.split('class="paper"')[i+1].includes('class="institutions"'))) {
-                            offset++;
-                        }
-                    }
-                    let ist_array = document.getElementsByClassName('institutions')[num-offset].children;
-                    for (let j = 0; j < ist_array.length; j++) {
-                        orgs.push(ist_array[j].innerText.replace(/([0-9,])/g, ""));
-                    }
-                }
-                return orgs;
-            },index+1);
-            const abstract = await page.evaluate((num) => {
-                let abstract = document.getElementsByClassName('paper')[num].childNodes[11].innerText;
-                if (abstract.length == 0) {
-                    abstract = '';
-                }
-                return abstract;
-            },index+1);
-            await page.evaluate((num) => {
-                let kw_click = document.getElementsByClassName('show-more au-target');
-                let offset1 = 0;
+        const doc_url = await page.evaluate((num) => {
+            return document.getElementsByClassName('title au-target')[num].href;
+        },index);
+        const year = await page.evaluate((num) => {
+            return document.getElementsByClassName('publication au-target')[num].innerText.split(' ')[0];
+        },index+1);
+        const pub_title = await page.evaluate((num) => {
+            return document.getElementsByClassName('publication au-target')[num].innerText.replace(/([0-9])/g, "").replace(' ', '');
+        },index);
+        const autori = await page.evaluate((num) => {
+            const a_list = document.getElementsByTagName('ma-author-string-collection')[num].getElementsByClassName('author-item');
+            let aut_list = [];
+            for (let i = 0; i < a_list.length; i++) {
+                aut_list.push(a_list[i].innerText.replace(',',''));
+            }
+            return aut_list;
+        },index+1);
+        const organizzazioni = await page.evaluate((num) => {
+            let orgs = [];
+            if (document.getElementsByClassName('paper')[num].innerHTML.includes('class="institutions"')) {
+                let offset = 0;
                 for (let i = 0; i < num; i++) {
-                    if (!(document.getElementsByClassName('tag-cloud')[i+1].innerText.includes('+'))) {
-                        if (!(document.getElementsByClassName('tag-cloud')[i+1].innerText.includes('LESS'))) {
-                            offset1++;
-                            console.log(offset1);
-                        }
+                    if (!(document.getElementsByClassName('results')[1].innerHTML.split('class="paper"')[i+1].includes('class="institutions"'))) {
+                        offset++;
                     }
                 }
-                console.log(num +' '+ offset1);
-                if (document.getElementsByClassName('tag-cloud')[num+1].innerText.includes('+')){
-                    console.log(num +' cè il più');
-                    if (kw_click.length < 12) {
-                        kw_click[num-offset1].click();    
-                    } else {
-                        kw_click[num+5-offset1].click();
-                    }
+                let ist_array = document.getElementsByClassName('institutions')[num-offset].children;
+                for (let j = 0; j < ist_array.length; j++) {
+                    orgs.push(ist_array[j].innerText.replace(/([0-9,])/g, ""));
                 }
-            }, index);
-            const keywords = await page.evaluate((num) => {
-                const kw_array = document.getElementsByClassName('tag-cloud')[num+1].innerText.split('\n');
-                if (document.getElementsByClassName('tag-cloud')[num+1].innerText.includes('LESS')){
-                    kw_array.pop();
-                }
-                return kw_array;
-            }, index);
+            }
+            return orgs;
+        },index+1);
+        const abstract = await page.evaluate((num) => {
+            let abstract = document.getElementsByClassName('paper')[num].childNodes[11].innerText;
+            if (abstract.length == 0) {
+                abstract = '';
+            }
+            return abstract;
+        },index+1);
+        const keywords = await page.evaluate((num) => {
+            const kw_array = document.getElementsByClassName('tag-cloud')[num+1].innerText.split('\n');
+            if (document.getElementsByClassName('tag-cloud')[num+1].innerText.includes('LESS')){
+                kw_array.pop();
+            }
+            return kw_array;
+        }, index);
 
-            let giornale = new giornaleModel(undefined, pub_title);
-            db.query(giornale.getGiornaleByTitolo(), (err, data) => {
-                if (data.length == 0) {
-                    let conferenza = new conferenzaModel(undefined, pub_title, "assente", "mancante");
-                    db.query(conferenza.getConferenzaByNome(), (err, data) => {
-                        if (data.length == 0) {
-                            let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "undefined", "assente", "mancante", year, 2, 1);
-                            db.query(articolo.saveNew(), (err, data) => {
-                                if(err) {console.log(index +', Salvataggio articolo: '+err);}
-                                if(!err) {
-                                    db.query(articolo.getArticoloByTitolo_Anno(), (err, data) => {
-                                        if(!err) {
-                                            let presente = new presenteinModel(data[0].idArticolo, 5, doc_url);
-                                            db.query(presente.save(), (err, data) => {
-                                                if(err) {console.log(index +', Salvataggio Articolo-repo: '+err);}
-                                                if(!err) {
-                                                    //console.log('Articolo-repo salvato');
-                                                }
-                                            });
-                                            let relazione = new citatodaModel(idCita, data[0].idArticolo);
-                                            db.query(relazione.save(), (err, data) => {
-                                                if(err) {console.log(err);}
-                                                if(!err) {
-                                                    console.log('relazione salvata');
-                                                }
-                                            });
-                                        }
-                                    });
-                                    if (data.insertId == 0) {
-                                        console.log('articolo esistente');
-                                    } else {
-                                        let idarticolo = data.insertId;
-                                        for (let j = 0; j < keywords.length; j++) {
-                                            let keyword = new parolachiaveModel(undefined, keywords[j]);
-                                            db.query(keyword.saveNew(), (err, data) => {
-                                                if(err) {console.log(index +', Salvataggio keyword: '+err);}
-                                                if (!err) {
-                                                    //console.log('keyword salvata');
-                                                    db.query(keyword.getParolaChiaveByTermine(), (err, data) => {
-                                                        if (!err) {
-                                                            let art_kw = new relativoaModel(idarticolo, data[0].idParolaChiave);
-                                                            db.query(art_kw.save(), (err, data) => {
-                                                                if(err) {console.log(index +', Salvataggio Articolo-kw: '+err);}
-                                                                if(!err) {
-                                                                    //console.log('Articolo-kw salvato');
-                                                                }
-                                                            });
-                                                        }
-                                                    });
-                                                }
-                                            });
-                                        }
-                                        for (let i = 0; i < autori.length; i++) {
-                                            let autore = new autoreModel(undefined, autori[i].replace(/([0-9])/g, ""));
-                                            db.query(autore.saveNew(), (err, data)=> {
-                                                if(err) {console.log(i +', Salvataggio autore: '+err);}
-                                                if(!err) {
-                                                    let idautore = [];
-                                                    if (data.insertId == 0) {
-                                                        db.query(autore.getAutoreByNomeCompleto(), (err, data)=> {
-                                                            if(!err) {
-                                                                idautore = data[0].idAutore;
-                                                                let scrittoda = new scrittodaModel(idautore, idarticolo);
-                                                                db.query(scrittoda.save(), (err, data)=> {
-                                                                    if(err){ console.log(i +', Salvataggio relazione scrittoda: '+err);}
-                                                                    if(!err) {
-                                                                        console.log('Salvato autore');
-                                                                    }
-                                                                });
-                                                                if (organizzazioni.length == 1) {
-                                                                    let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
-                                                                    db.query(organiz.saveNew(), (err, data)=> {
-                                                                        if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                        if(!err) {
-                                                                            console.log('Salvata organizzazione');
-                                                                            db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                                if(!err) {
-                                                                                    let idorg = data[0].idOrganizzazione;
-                                                                                    let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                                    db.query(affiliato.save(), (err, data)=> {
-                                                                                        if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                        if(!err) {
-                                                                                            console.log('Salvata org_autore');
-                                                                                        }
-                                                                                    });
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                } else {
-                                                                    let val = parseInt(autori[i].replace(/\D/g, ""), 10);
-                                                                    let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
-                                                                    db.query(organiz.saveNew(), (err, data)=> {
-                                                                        if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                        if(!err) {
-                                                                            console.log('Salvata organizzazione');
-                                                                            db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                                if(!err) {
-                                                                                    let idorg = data[0].idOrganizzazione;
-                                                                                    let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                                    db.query(affiliato.save(), (err, data)=> {
-                                                                                        if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                        if(!err) {
-                                                                                            console.log('Salvata org_autore');
-                                                                                        }
-                                                                                    });
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });   
-                                                                }
-                                                            }
-                                                        });
-                                                    } else {
-                                                        idautore = data.insertId;
-                                                        let scrittoda = new scrittodaModel(idautore, idarticolo);
-                                                        db.query(scrittoda.save(), (err, data)=> {
-                                                            if(err){ console.log(i +', Salvataggio relazione scrittoda: '+err);}
-                                                            if(!err) {
-                                                                console.log('Salvato');
-                                                            }
-                                                        });
-                                                        if (organizzazioni.length == 1) {
-                                                            let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
-                                                            db.query(organiz.saveNew(), (err, data)=> {
-                                                                if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                if(!err) {
-                                                                    console.log('Salvata organizzazione');
-                                                                    db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                        if(!err) {
-                                                                            let idorg = data[0].idOrganizzazione;
-                                                                            let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                            db.query(affiliato.save(), (err, data)=> {
-                                                                                if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                if(!err) {
-                                                                                    console.log('Salvata org_autore');
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });
-                                                        } else {
-                                                            let val = parseInt(autori[i].replace(/\D/g, ""), 10);
-                                                            let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
-                                                            db.query(organiz.saveNew(), (err, data)=> {
-                                                                if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                if(!err) {
-                                                                    console.log('Salvata organizzazione');
-                                                                    db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                        if(!err) {
-                                                                            let idorg = data[0].idOrganizzazione;
-                                                                            let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                            db.query(affiliato.save(), (err, data)=> {
-                                                                                if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                if(!err) {
-                                                                                    console.log('Salvata org_autore');
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });   
-                                                        }
-                                                    }
-                                                }
-                                            });
-                                        }
+        let giornale = new giornaleModel(undefined, pub_title);
+        db.query(giornale.getGiornaleByTitolo(), (err, data) => {
+            if (data.length == 0) {
+                let conferenza = new conferenzaModel(undefined, pub_title, "", "");
+                db.query(conferenza.getConferenzaByNome(), (err, data) => {
+                    if (data.length == 0) {
+                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", year, 1, 1);
+                        db.query(articolo.saveNew(), (err, data) => {
+                            if(err) {console.log(index +', Salvataggio articolo: '+err);}
+                            if(!err) {
+                                db.query(articolo.getArticoloByTitolo_Anno(), (err, data) => {
+                                    if(!err) {
+                                        let presente = new presenteinModel(data[0].idArticolo, 5, doc_url);
+                                        db.query(presente.save(), (err, data) => {
+                                            if(err) {console.log(index +', Salvataggio Articolo-repo: '+err);}
+                                            if(!err) {
+                                                //console.log('Articolo-repo salvato');
+                                            }
+                                        });
+                                        let relazione = new citatodaModel(idCita, data[0].idArticolo);
+                                        db.query(relazione.save(), (err, data) => {
+                                            if(err) {console.log(err);}
+                                            if(!err) {
+                                                console.log('relazione salvata');
+                                            }
+                                        });
                                     }
-                                }
-                            });
-                        } else {
-                            let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "undefined", "assente", "mancante", year, data[0].idConferenza, 1);
-                            db.query(articolo.saveNew(), (err, data) => {
-                                if(err) {console.log(index +', Salvataggio articolo: '+err);}
-                                if(!err) {
-                                    db.query(articolo.getArticoloByTitolo_Anno(), (err, data) => {
-                                        if(!err) {
-                                            let presente = new presenteinModel(data[0].idArticolo, 5, doc_url);
-                                            db.query(presente.save(), (err, data) => {
-                                                if(err) {console.log(index +', Salvataggio Articolo-repo: '+err);}
-                                                if(!err) {
-                                                    //console.log('Articolo-repo salvato');
-                                                }
-                                            });
-                                            let relazione = new citatodaModel(idCita, data[0].idArticolo);
-                                            db.query(relazione.save(), (err, data) => {
-                                                if(err) {console.log(err);}
-                                                if(!err) {
-                                                    console.log('relazione salvata');
-                                                }
-                                            });
-                                        }
-                                    });
-                                    if (data.insertId == 0) {
-                                        console.log('articolo esistente');
-                                    } else {
-                                        let idarticolo = data.insertId;
-                                        for (let j = 0; j < keywords.length; j++) {
-                                            let keyword = new parolachiaveModel(undefined, keywords[j]);
-                                            db.query(keyword.saveNew(), (err, data) => {
-                                                if(err) {console.log(index +', Salvataggio keyword: '+err);}
-                                                if (!err) {
-                                                    //console.log('keyword salvata');
-                                                    db.query(keyword.getParolaChiaveByTermine(), (err, data) => {
-                                                        if (!err) {
-                                                            let art_kw = new relativoaModel(idarticolo, data[0].idParolaChiave);
-                                                            db.query(art_kw.save(), (err, data) => {
-                                                                if(err) {console.log(index +', Salvataggio Articolo-kw: '+err);}
-                                                                if(!err) {
-                                                                    //console.log('Articolo-kw salvato');
-                                                                }
-                                                            });
-                                                        }
-                                                    });
-                                                }
-                                            });
-                                        }
-                                        for (let i = 0; i < autori.length; i++) {
-                                            let autore = new autoreModel(undefined, autori[i].replace(/([0-9])/g, ""));
-                                            db.query(autore.saveNew(), (err, data)=> {
-                                                if(err) {console.log(i +', Salvataggio autore: '+err);}
-                                                if(!err) {
-                                                    let idautore = [];
-                                                    if (data.insertId == 0) {
-                                                        db.query(autore.getAutoreByNomeCompleto(), (err, data)=> {
+                                });
+                                if (data.insertId == 0) {
+                                    console.log('articolo esistente');
+                                } else {
+                                    let idarticolo = data.insertId;
+                                    for (let j = 0; j < keywords.length; j++) {
+                                        let keyword = new parolachiaveModel(undefined, keywords[j]);
+                                        db.query(keyword.saveNew(), (err, data) => {
+                                            if(err) {console.log(index +', Salvataggio keyword: '+err);}
+                                            if (!err) {
+                                                //console.log('keyword salvata');
+                                                db.query(keyword.getParolaChiaveByTermine(), (err, data) => {
+                                                    if (!err) {
+                                                        let art_kw = new relativoaModel(idarticolo, data[0].idParolaChiave);
+                                                        db.query(art_kw.save(), (err, data) => {
+                                                            if(err) {console.log(index +', Salvataggio Articolo-kw: '+err);}
                                                             if(!err) {
-                                                                idautore = data[0].idAutore;
-                                                                let scrittoda = new scrittodaModel(idautore, idarticolo);
-                                                                db.query(scrittoda.save(), (err, data)=> {
-                                                                    if(err){ console.log(i +', Salvataggio conferenza relazione scrittoda: '+err);}
-                                                                    if(!err) {
-                                                                        console.log('Salvato autore');
-                                                                    }
-                                                                });
-                                                                if (organizzazioni.length == 1) {
-                                                                    let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
-                                                                    db.query(organiz.saveNew(), (err, data)=> {
-                                                                        if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                        if(!err) {
-                                                                            console.log('Salvata organizzazione');
-                                                                            db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                                if(!err) {
-                                                                                    let idorg = data[0].idOrganizzazione;
-                                                                                    let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                                    db.query(affiliato.save(), (err, data)=> {
-                                                                                        if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                        if(!err) {
-                                                                                            console.log('Salvata org_autore');
-                                                                                        }
-                                                                                    });
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                } else {
-                                                                    let val = parseInt(autori[i].replace(/\D/g, ""), 10);
-                                                                    let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
-                                                                    db.query(organiz.saveNew(), (err, data)=> {
-                                                                        if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                        if(!err) {
-                                                                            console.log('Salvata organizzazione');
-                                                                            db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                                if(!err) {
-                                                                                    let idorg = data[0].idOrganizzazione;
-                                                                                    let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                                    db.query(affiliato.save(), (err, data)=> {
-                                                                                        if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                        if(!err) {
-                                                                                            console.log('Salvata org_autore');
-                                                                                        }
-                                                                                    });
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });   
-                                                                }
+                                                                //console.log('Articolo-kw salvato');
                                                             }
                                                         });
-                                                    } else {
-                                                        idautore = data.insertId;
-                                                        let scrittoda = new scrittodaModel(idautore, idarticolo);
-                                                        db.query(scrittoda.save(), (err, data)=> {
-                                                            if(err){ console.log(i +', Salvataggio conferenza relazione scrittoda: '+err);}
-                                                            if(!err) {
-                                                                console.log('Salvato');
-                                                            }
-                                                        });
-                                                        if (organizzazioni.length == 1) {
-                                                            let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
-                                                            db.query(organiz.saveNew(), (err, data)=> {
-                                                                if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                if(!err) {
-                                                                    console.log('Salvata organizzazione');
-                                                                    db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                        if(!err) {
-                                                                            let idorg = data[0].idOrganizzazione;
-                                                                            let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                            db.query(affiliato.save(), (err, data)=> {
-                                                                                if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                if(!err) {
-                                                                                    console.log('Salvata org_autore');
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });
-                                                        } else {
-                                                            let val = parseInt(autori[i].replace(/\D/g, ""), 10);
-                                                            let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
-                                                            db.query(organiz.saveNew(), (err, data)=> {
-                                                                if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                if(!err) {
-                                                                    console.log('Salvata organizzazione');
-                                                                    db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                        if(!err) {
-                                                                            let idorg = data[0].idOrganizzazione;
-                                                                            let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                            db.query(affiliato.save(), (err, data)=> {
-                                                                                if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                if(!err) {
-                                                                                    console.log('Salvata org_autore');
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });   
-                                                        }
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    });
-                } else {
-                    let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "undefined", "assente", "mancante", year, 2, data[0].idGiornale);
-                    db.query(articolo.saveNew(), (err, data) => {
-                        if(err) {console.log(index +', Salvataggio articolo: '+err);}
-                        if(!err) {
-                            db.query(articolo.getArticoloByTitolo_Anno(), (err, data) => {
-                                if(!err) {
-                                    let presente = new presenteinModel(data[0].idArticolo, 5, doc_url);
-                                    db.query(presente.save(), (err, data) => {
-                                        if(err) {console.log(index +', Salvataggio Articolo-repo: '+err);}
-                                        if(!err) {
-                                            //console.log('Articolo-repo salvato');
-                                        }
-                                    });
-                                    let relazione = new citatodaModel(idCita, data[0].idArticolo);
-                                    db.query(relazione.save(), (err, data) => {
-                                        if(err) {console.log(err);}
-                                        if(!err) {
-                                            console.log('relazione salvata');
-                                        }
-                                    });
-                                }
-                            });
-                            if (data.insertId == 0) {
-                                console.log('articolo esistente');
-                            } else {
-                                let idarticolo = data.insertId;
-                                for (let j = 0; j < keywords.length; j++) {
-                                    let keyword = new parolachiaveModel(undefined, keywords[j]);
-                                    db.query(keyword.saveNew(), (err, data) => {
-                                        if(err) {console.log(index +', Salvataggio keyword: '+err);}
-                                        if (!err) {
-                                            //console.log('keyword salvata');
-                                            db.query(keyword.getParolaChiaveByTermine(), (err, data) => {
-                                                if (!err) {
-                                                    let art_kw = new relativoaModel(idarticolo, data[0].idParolaChiave);
-                                                    db.query(art_kw.save(), (err, data) => {
-                                                        if(err) {console.log(index +', Salvataggio Articolo-kw: '+err);}
-                                                        if(!err) {
-                                                            //console.log('Articolo-kw salvato');
-                                                        }
-                                                    });
-                                                }
-                                            });
-                                        }
-                                    });
-                                }
-                                for (let i = 0; i < autori.length; i++) {
-                                    let autore = new autoreModel(undefined, autori[i].replace(/([0-9])/g, ""));
-                                    db.query(autore.saveNew(), (err, data)=> {
-                                        if(err) {console.log(i +', Salvataggio autore: '+err);}
-                                        if(!err) {
-                                            let idautore = [];
-                                            if (data.insertId == 0) {
-                                                db.query(autore.getAutoreByNomeCompleto(), (err, data)=> {
-                                                    if(!err) {
-                                                        idautore = data[0].idAutore;
-                                                        let scrittoda = new scrittodaModel(idautore, idarticolo);
-                                                        db.query(scrittoda.save(), (err, data)=> {
-                                                            if(err){ console.log(i +', Salvataggio journal relazione scrittoda: '+err);}
-                                                            if(!err) {
-                                                                console.log('Salvato autore');
-                                                            }
-                                                        });
-                                                        if (organizzazioni.length == 1) {
-                                                            let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
-                                                            db.query(organiz.saveNew(), (err, data)=> {
-                                                                if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                if(!err) {
-                                                                    console.log('Salvata organizzazione');
-                                                                    db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                        if(!err) {
-                                                                            let idorg = data[0].idOrganizzazione;
-                                                                            let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                            db.query(affiliato.save(), (err, data)=> {
-                                                                                if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                if(!err) {
-                                                                                    console.log('Salvata org_autore');
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });
-                                                        } else {
-                                                            let val = parseInt(autori[i].replace(/\D/g, ""), 10);
-                                                            let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
-                                                            db.query(organiz.saveNew(), (err, data)=> {
-                                                                if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
-                                                                if(!err) {
-                                                                    console.log('Salvata organizzazione');
-                                                                    db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                        if(!err) {
-                                                                            let idorg = data[0].idOrganizzazione;
-                                                                            let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                            db.query(affiliato.save(), (err, data)=> {
-                                                                                if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                                if(!err) {
-                                                                                    console.log('Salvata org_autore');
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });   
-                                                        }
                                                     }
                                                 });
-                                            } else {
-                                                idautore = data.insertId;
-                                                let scrittoda = new scrittodaModel(idautore, idarticolo);
-                                                db.query(scrittoda.save(), (err, data)=> {
-                                                    if(err){ console.log(i +', Salvataggio journal relazione scrittoda: '+err);}
-                                                    if(!err) {
-                                                        console.log('Salvato');
-                                                    }
-                                                });
-                                                if (organizzazioni.length == 1) {
-                                                    let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
-                                                    db.query(organiz.saveNew(), (err, data)=> {
-                                                        if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                            }
+                                        });
+                                    }
+                                    for (let i = 0; i < autori.length; i++) {
+                                        let autore = new autoreModel(undefined, autori[i].replace(/([0-9])/g, ""));
+                                        db.query(autore.saveNew(), (err, data)=> {
+                                            if(err) {console.log(i +', Salvataggio autore: '+err);}
+                                            if(!err) {
+                                                let idautore = [];
+                                                if (data.insertId == 0) {
+                                                    db.query(autore.getAutoreByNomeCompleto(), (err, data)=> {
                                                         if(!err) {
-                                                            console.log('Salvata organizzazione');
-                                                            db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                            idautore = data[0].idAutore;
+                                                            let scrittoda = new scrittodaModel(idautore, idarticolo);
+                                                            db.query(scrittoda.save(), (err, data)=> {
+                                                                if(err){ console.log(i +', Salvataggio relazione scrittoda: '+err);}
                                                                 if(!err) {
-                                                                    let idorg = data[0].idOrganizzazione;
-                                                                    let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                    db.query(affiliato.save(), (err, data)=> {
-                                                                        if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                        if(!err) {
-                                                                            console.log('Salvata org_autore');
-                                                                        }
-                                                                    });
+                                                                    console.log('Salvato autore');
                                                                 }
                                                             });
+                                                            if (organizzazioni.length == 1) {
+                                                                let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
+                                                                db.query(organiz.saveNew(), (err, data)=> {
+                                                                    if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                                    if(!err) {
+                                                                        console.log('Salvata organizzazione');
+                                                                        db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                            if(!err) {
+                                                                                let idorg = data[0].idOrganizzazione;
+                                                                                let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                                db.query(affiliato.save(), (err, data)=> {
+                                                                                    if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                                    if(!err) {
+                                                                                        console.log('Salvata org_autore');
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            } else {
+                                                                let val = parseInt(autori[i].replace(/\D/g, ""), 10);
+                                                                let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
+                                                                db.query(organiz.saveNew(), (err, data)=> {
+                                                                    if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                                    if(!err) {
+                                                                        console.log('Salvata organizzazione');
+                                                                        db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                            if(!err) {
+                                                                                let idorg = data[0].idOrganizzazione;
+                                                                                let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                                db.query(affiliato.save(), (err, data)=> {
+                                                                                    if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                                    if(!err) {
+                                                                                        console.log('Salvata org_autore');
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });   
+                                                            }
                                                         }
                                                     });
                                                 } else {
-                                                    let val = parseInt(autori[i].replace(/\D/g, ""), 10);
-                                                    let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
-                                                    db.query(organiz.saveNew(), (err, data)=> {
-                                                        if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                    idautore = data.insertId;
+                                                    let scrittoda = new scrittodaModel(idautore, idarticolo);
+                                                    db.query(scrittoda.save(), (err, data)=> {
+                                                        if(err){ console.log(i +', Salvataggio relazione scrittoda: '+err);}
                                                         if(!err) {
-                                                            console.log('Salvata organizzazione');
-                                                            db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
-                                                                if(!err) {
-                                                                    let idorg = data[0].idOrganizzazione;
-                                                                    let affiliato = new affiliatoaModel(idautore, idorg);
-                                                                    db.query(affiliato.save(), (err, data)=> {
-                                                                        if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
-                                                                        if(!err) {
-                                                                            console.log('Salvata org_autore');
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });
+                                                            console.log('Salvato');
                                                         }
-                                                    });   
+                                                    });
+                                                    if (organizzazioni.length == 1) {
+                                                        let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
+                                                        db.query(organiz.saveNew(), (err, data)=> {
+                                                            if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                            if(!err) {
+                                                                console.log('Salvata organizzazione');
+                                                                db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                    if(!err) {
+                                                                        let idorg = data[0].idOrganizzazione;
+                                                                        let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                        db.query(affiliato.save(), (err, data)=> {
+                                                                            if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                            if(!err) {
+                                                                                console.log('Salvata org_autore');
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
+                                                        });
+                                                    } else {
+                                                        let val = parseInt(autori[i].replace(/\D/g, ""), 10);
+                                                        let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
+                                                        db.query(organiz.saveNew(), (err, data)=> {
+                                                            if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                            if(!err) {
+                                                                console.log('Salvata organizzazione');
+                                                                db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                    if(!err) {
+                                                                        let idorg = data[0].idOrganizzazione;
+                                                                        let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                        db.query(affiliato.save(), (err, data)=> {
+                                                                            if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                            if(!err) {
+                                                                                console.log('Salvata org_autore');
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
+                                                        });   
+                                                    }
                                                 }
                                             }
-                                        }
-                                    });
+                                        });
+                                    }
                                 }
                             }
+                        });
+                    } else {
+                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", year, data[0].idConferenza, 1);
+                        db.query(articolo.saveNew(), (err, data) => {
+                            if(err) {console.log(index +', Salvataggio articolo: '+err);}
+                            if(!err) {
+                                db.query(articolo.getArticoloByTitolo_Anno(), (err, data) => {
+                                    if(!err) {
+                                        let presente = new presenteinModel(data[0].idArticolo, 5, doc_url);
+                                        db.query(presente.save(), (err, data) => {
+                                            if(err) {console.log(index +', Salvataggio Articolo-repo: '+err);}
+                                            if(!err) {
+                                                //console.log('Articolo-repo salvato');
+                                            }
+                                        });
+                                        let relazione = new citatodaModel(idCita, data[0].idArticolo);
+                                        db.query(relazione.save(), (err, data) => {
+                                            if(err) {console.log(err);}
+                                            if(!err) {
+                                                console.log('relazione salvata');
+                                            }
+                                        });
+                                    }
+                                });
+                                if (data.insertId == 0) {
+                                    console.log('articolo esistente');
+                                } else {
+                                    let idarticolo = data.insertId;
+                                    for (let j = 0; j < keywords.length; j++) {
+                                        let keyword = new parolachiaveModel(undefined, keywords[j]);
+                                        db.query(keyword.saveNew(), (err, data) => {
+                                            if(err) {console.log(index +', Salvataggio keyword: '+err);}
+                                            if (!err) {
+                                                //console.log('keyword salvata');
+                                                db.query(keyword.getParolaChiaveByTermine(), (err, data) => {
+                                                    if (!err) {
+                                                        let art_kw = new relativoaModel(idarticolo, data[0].idParolaChiave);
+                                                        db.query(art_kw.save(), (err, data) => {
+                                                            if(err) {console.log(index +', Salvataggio Articolo-kw: '+err);}
+                                                            if(!err) {
+                                                                //console.log('Articolo-kw salvato');
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        });
+                                    }
+                                    for (let i = 0; i < autori.length; i++) {
+                                        let autore = new autoreModel(undefined, autori[i].replace(/([0-9])/g, ""));
+                                        db.query(autore.saveNew(), (err, data)=> {
+                                            if(err) {console.log(i +', Salvataggio autore: '+err);}
+                                            if(!err) {
+                                                let idautore = [];
+                                                if (data.insertId == 0) {
+                                                    db.query(autore.getAutoreByNomeCompleto(), (err, data)=> {
+                                                        if(!err) {
+                                                            idautore = data[0].idAutore;
+                                                            let scrittoda = new scrittodaModel(idautore, idarticolo);
+                                                            db.query(scrittoda.save(), (err, data)=> {
+                                                                if(err){ console.log(i +', Salvataggio conferenza relazione scrittoda: '+err);}
+                                                                if(!err) {
+                                                                    console.log('Salvato autore');
+                                                                }
+                                                            });
+                                                            if (organizzazioni.length == 1) {
+                                                                let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
+                                                                db.query(organiz.saveNew(), (err, data)=> {
+                                                                    if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                                    if(!err) {
+                                                                        console.log('Salvata organizzazione');
+                                                                        db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                            if(!err) {
+                                                                                let idorg = data[0].idOrganizzazione;
+                                                                                let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                                db.query(affiliato.save(), (err, data)=> {
+                                                                                    if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                                    if(!err) {
+                                                                                        console.log('Salvata org_autore');
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            } else {
+                                                                let val = parseInt(autori[i].replace(/\D/g, ""), 10);
+                                                                let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
+                                                                db.query(organiz.saveNew(), (err, data)=> {
+                                                                    if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                                    if(!err) {
+                                                                        console.log('Salvata organizzazione');
+                                                                        db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                            if(!err) {
+                                                                                let idorg = data[0].idOrganizzazione;
+                                                                                let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                                db.query(affiliato.save(), (err, data)=> {
+                                                                                    if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                                    if(!err) {
+                                                                                        console.log('Salvata org_autore');
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });   
+                                                            }
+                                                        }
+                                                    });
+                                                } else {
+                                                    idautore = data.insertId;
+                                                    let scrittoda = new scrittodaModel(idautore, idarticolo);
+                                                    db.query(scrittoda.save(), (err, data)=> {
+                                                        if(err){ console.log(i +', Salvataggio conferenza relazione scrittoda: '+err);}
+                                                        if(!err) {
+                                                            console.log('Salvato');
+                                                        }
+                                                    });
+                                                    if (organizzazioni.length == 1) {
+                                                        let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
+                                                        db.query(organiz.saveNew(), (err, data)=> {
+                                                            if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                            if(!err) {
+                                                                console.log('Salvata organizzazione');
+                                                                db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                    if(!err) {
+                                                                        let idorg = data[0].idOrganizzazione;
+                                                                        let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                        db.query(affiliato.save(), (err, data)=> {
+                                                                            if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                            if(!err) {
+                                                                                console.log('Salvata org_autore');
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
+                                                        });
+                                                    } else {
+                                                        let val = parseInt(autori[i].replace(/\D/g, ""), 10);
+                                                        let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
+                                                        db.query(organiz.saveNew(), (err, data)=> {
+                                                            if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                            if(!err) {
+                                                                console.log('Salvata organizzazione');
+                                                                db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                    if(!err) {
+                                                                        let idorg = data[0].idOrganizzazione;
+                                                                        let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                        db.query(affiliato.save(), (err, data)=> {
+                                                                            if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                            if(!err) {
+                                                                                console.log('Salvata org_autore');
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
+                                                        });   
+                                                    }
+                                                }
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            } else {
+                let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", year, 1, data[0].idGiornale);
+                db.query(articolo.saveNew(), (err, data) => {
+                    if(err) {console.log(index +', Salvataggio articolo: '+err);}
+                    if(!err) {
+                        db.query(articolo.getArticoloByTitolo_Anno(), (err, data) => {
+                            if(!err) {
+                                let presente = new presenteinModel(data[0].idArticolo, 5, doc_url);
+                                db.query(presente.save(), (err, data) => {
+                                    if(err) {console.log(index +', Salvataggio Articolo-repo: '+err);}
+                                    if(!err) {
+                                        //console.log('Articolo-repo salvato');
+                                    }
+                                });
+                                let relazione = new citatodaModel(idCita, data[0].idArticolo);
+                                db.query(relazione.save(), (err, data) => {
+                                    if(err) {console.log(err);}
+                                    if(!err) {
+                                        console.log('relazione salvata');
+                                    }
+                                });
+                            }
+                        });
+                        if (data.insertId == 0) {
+                            console.log('articolo esistente');
+                        } else {
+                            let idarticolo = data.insertId;
+                            for (let j = 0; j < keywords.length; j++) {
+                                let keyword = new parolachiaveModel(undefined, keywords[j]);
+                                db.query(keyword.saveNew(), (err, data) => {
+                                    if(err) {console.log(index +', Salvataggio keyword: '+err);}
+                                    if (!err) {
+                                        //console.log('keyword salvata');
+                                        db.query(keyword.getParolaChiaveByTermine(), (err, data) => {
+                                            if (!err) {
+                                                let art_kw = new relativoaModel(idarticolo, data[0].idParolaChiave);
+                                                db.query(art_kw.save(), (err, data) => {
+                                                    if(err) {console.log(index +', Salvataggio Articolo-kw: '+err);}
+                                                    if(!err) {
+                                                        //console.log('Articolo-kw salvato');
+                                                    }
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                            for (let i = 0; i < autori.length; i++) {
+                                let autore = new autoreModel(undefined, autori[i].replace(/([0-9])/g, ""));
+                                db.query(autore.saveNew(), (err, data)=> {
+                                    if(err) {console.log(i +', Salvataggio autore: '+err);}
+                                    if(!err) {
+                                        let idautore = [];
+                                        if (data.insertId == 0) {
+                                            db.query(autore.getAutoreByNomeCompleto(), (err, data)=> {
+                                                if(!err) {
+                                                    idautore = data[0].idAutore;
+                                                    let scrittoda = new scrittodaModel(idautore, idarticolo);
+                                                    db.query(scrittoda.save(), (err, data)=> {
+                                                        if(err){ console.log(i +', Salvataggio journal relazione scrittoda: '+err);}
+                                                        if(!err) {
+                                                            console.log('Salvato autore');
+                                                        }
+                                                    });
+                                                    if (organizzazioni.length == 1) {
+                                                        let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
+                                                        db.query(organiz.saveNew(), (err, data)=> {
+                                                            if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                            if(!err) {
+                                                                console.log('Salvata organizzazione');
+                                                                db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                    if(!err) {
+                                                                        let idorg = data[0].idOrganizzazione;
+                                                                        let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                        db.query(affiliato.save(), (err, data)=> {
+                                                                            if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                            if(!err) {
+                                                                                console.log('Salvata org_autore');
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
+                                                        });
+                                                    } else {
+                                                        let val = parseInt(autori[i].replace(/\D/g, ""), 10);
+                                                        let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
+                                                        db.query(organiz.saveNew(), (err, data)=> {
+                                                            if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                            if(!err) {
+                                                                console.log('Salvata organizzazione');
+                                                                db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                                    if(!err) {
+                                                                        let idorg = data[0].idOrganizzazione;
+                                                                        let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                        db.query(affiliato.save(), (err, data)=> {
+                                                                            if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                            if(!err) {
+                                                                                console.log('Salvata org_autore');
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
+                                                        });   
+                                                    }
+                                                }
+                                            });
+                                        } else {
+                                            idautore = data.insertId;
+                                            let scrittoda = new scrittodaModel(idautore, idarticolo);
+                                            db.query(scrittoda.save(), (err, data)=> {
+                                                if(err){ console.log(i +', Salvataggio journal relazione scrittoda: '+err);}
+                                                if(!err) {
+                                                    console.log('Salvato');
+                                                }
+                                            });
+                                            if (organizzazioni.length == 1) {
+                                                let organiz = new organizzazioneModel(undefined, organizzazioni[0], '');
+                                                db.query(organiz.saveNew(), (err, data)=> {
+                                                    if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                    if(!err) {
+                                                        console.log('Salvata organizzazione');
+                                                        db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                            if(!err) {
+                                                                let idorg = data[0].idOrganizzazione;
+                                                                let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                db.query(affiliato.save(), (err, data)=> {
+                                                                    if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                    if(!err) {
+                                                                        console.log('Salvata org_autore');
+                                                                    }
+                                                                });
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                            } else {
+                                                let val = parseInt(autori[i].replace(/\D/g, ""), 10);
+                                                let organiz = new organizzazioneModel(undefined, organizzazioni[val-1], '');
+                                                db.query(organiz.saveNew(), (err, data)=> {
+                                                    if(err){ console.log(i +', Salvataggio relazione organizzazione: '+err);}
+                                                    if(!err) {
+                                                        console.log('Salvata organizzazione');
+                                                        db.query(organiz.getOrganizzazioneByNome(), (err, data)=> {
+                                                            if(!err) {
+                                                                let idorg = data[0].idOrganizzazione;
+                                                                let affiliato = new affiliatoaModel(idautore, idorg);
+                                                                db.query(affiliato.save(), (err, data)=> {
+                                                                    if(err){ console.log(i +', Salvataggio relazione affiliatoa: '+err);}
+                                                                    if(!err) {
+                                                                        console.log('Salvata org_autore');
+                                                                    }
+                                                                });
+                                                            }
+                                                        });
+                                                    }
+                                                });   
+                                            }
+                                        }
+                                    }
+                                });
+                            }
                         }
-                    });
-                }
-            });  
-        }
+                    }
+                });
+            }
+        });
     }
 }
 
 async function getRef(page) {
     let articolo = new articoloModel();
     db.query(articolo.getArticoloFromMsoftAcademic(), async(err, data) => {
-        for (const element of data) {
+        let list = data;
+        for (const element of list) {
             let art_url = element["URL_Articolo"];
             let idCita = element["idArticolo"];
             await page.goto(art_url, {waitUntil: 'load', timeout: 0});
@@ -729,10 +711,10 @@ async function get(page) {
         let giornale = new giornaleModel(undefined, pub_title);
         db.query(giornale.getGiornaleByTitolo(), (err, data) => {
             if (data.length == 0) {
-                let conferenza = new conferenzaModel(undefined, pub_title, "assente", "mancante");
+                let conferenza = new conferenzaModel(undefined, pub_title, "", "");
                 db.query(conferenza.getConferenzaByNome(), (err, data) => {
                     if (data.length == 0) {
-                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", year, 2, 1);
+                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", year, 1, 1);
                         db.query(articolo.saveNew(), (err, data) => {
                             if(err) {console.log(index +', Salvataggio articolo: '+err);}
                             if(!err) {
@@ -891,7 +873,7 @@ async function get(page) {
                             }
                         });
                     } else {
-                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", year, data[0].idConferenza, 1);
+                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", year, data[0].idConferenza, 1);
                         db.query(articolo.saveNew(), (err, data) => {
                             if(err) {console.log(index +', Salvataggio articolo: '+err);}
                             if(!err) {
@@ -1059,7 +1041,7 @@ async function get(page) {
                     }
                 });
             } else {
-                let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", year, 2, data[0].idGiornale);
+                let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", year, 1, data[0].idGiornale);
                 db.query(articolo.saveNew(), (err, data) => {
                     if(err) {console.log(index +', Salvataggio articolo: '+err);}
                     if(!err) {
@@ -1222,17 +1204,24 @@ async function get(page) {
     }
 }
 
+
+//1a fase
 db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
-    /*
-    //for (let res = 0; res < 2; res++) {
-        //let res = 0;
+    for (let res = 0; res < 1; res++) {
         let skip = res*10
         await page.goto(url+skip, {waitUntil: 'load', timeout: 0});
         await page.waitForSelector('div.paper', {timeout: 0});
         await get(page);
-    //}
-    //*/await getRef(page);
+    }
 })();
+/*
+//2a fase
+db.open();
+(async () => {
+    const browser = await puppeteer.launch({headless: false});
+    const page = await browser.newPage();
+    await getRef(page);
+})();*/

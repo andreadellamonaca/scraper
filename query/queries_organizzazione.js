@@ -18,7 +18,7 @@ class Organizzazione {
 
     saveNew() {
         let sql =`INSERT INTO Organizzazione(Nome, Sede)
-        SELECT * FROM (SELECT '${this.nome}', '${this.sede}') AS tmp
+        SELECT * FROM (SELECT '${this.nome}' as Name, '${this.sede}' as site) AS tmp
         WHERE NOT EXISTS (
             SELECT Nome FROM Organizzazione WHERE Nome = '${this.nome}'
         ) LIMIT 1`;

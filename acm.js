@@ -29,7 +29,7 @@ function delay(i, timer) {
 }
 
 async function get(browser, page) {
-    for (let index = 5; index < 20; index++) {
+    for (let index = 0; index < 20; index++) {
         await delay(index, 1000);
         const title = await page.evaluate((num) => {
             return document.getElementsByClassName('title')[num].innerText;
@@ -80,10 +80,10 @@ async function get(browser, page) {
         let giornale = new giornaleModel(undefined, pub_title.replace(regex, escaper));
         db.query(giornale.getGiornaleByTitolo(), (err, data) => {
             if (data.length == 0) {
-                let conferenza = new conferenzaModel(undefined, pub_title.replace(regex, escaper), "assente", anno_publ);
+                let conferenza = new conferenzaModel(undefined, pub_title.replace(regex, escaper), "", anno_publ);
                 db.query(conferenza.getConferenzaByNome(), (err, data) => {
                     if (data.length == 0) {
-                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", anno, 2, 1);
+                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", anno, 1, 1);
                         db.query(articolo.saveNew(), (err, data) => {
                             if(err) {console.log(index +', Salvataggio articolo: '+err);}
                             if(!err) {
@@ -158,7 +158,7 @@ async function get(browser, page) {
                             }
                         });
                     } else {
-                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", anno, data[0].idConferenza, 1);
+                        let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", anno, data[0].idConferenza, 1);
                         db.query(articolo.saveNew(), (err, data) => {
                             if(err) {console.log(index +', Salvataggio articolo: '+err);}
                             if(!err) {
@@ -235,7 +235,7 @@ async function get(browser, page) {
                     }
                 });
             } else {
-                let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", anno, 2, data[0].idGiornale);
+                let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", anno, 1, data[0].idGiornale);
                 db.query(articolo.saveNew(), (err, data) => {
                     if(err) {console.log(index +', Salvataggio articolo: '+err);}
                     if(!err) {
@@ -318,11 +318,10 @@ db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
-    //for (let res = 0; res < 5; res++) {
-        let res = 0;
+    for (let res = 0; res < 1; res++) {
         let num_skip = res*20;
         await page.goto(url+next+num_skip, {waitUntil: 'load', timeout: 0});
         await page.waitForSelector('div.details', {timeout: 0});
         await get(browser, page);
-    //}
+    }
 })();

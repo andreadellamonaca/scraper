@@ -1,5 +1,6 @@
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 var req = new XMLHttpRequest();
+var APIKEY = 'esvghg4gbrwh36tzev6xumhs';
 const db = require("./dbConnection");
 const autoreModel = require('./query/queries_autore');
 const articoloModel = require('./query/queries_articolo');
@@ -12,8 +13,6 @@ const parolachiaveModel = require('./query/queries_parolachiave');
 const organizzazioneModel = require('./query/queries_organizzazione');
 const affiliatoaModel = require('./query/queries_affiliatoa');
 const citatodaModel = require('./query/queries_citatoda');
-const rp = require('request-promise');
-const $ = require('cheerio');
 const puppeteer = require('puppeteer');
 
 
@@ -33,19 +32,19 @@ function processRequest(e) {
             let doi = element["doi"];
             let issn;
             if (element["issn"] == null) {
-                issn = "assente";  
+                issn = "";  
             } else {
                 issn = element["issn"];
             }
             let isbn;
             if (element["isbn"] == null) {
-                isbn = "mancante";  
+                isbn = "";  
             } else {
                 isbn = element["isbn"];
             }
             let abstract;
             if (element["abstract"] == null) {
-                abstract = "non presente";  
+                abstract = "";  
             } else {
                 abstract = element["abstract"].replace(regex, escaper);
             }
@@ -60,7 +59,7 @@ function processRequest(e) {
                         db.query(giornale.getGiornaleByTitolo(), (err, data)=> {
                             if(!err) {
                                 let idgiornale = data[0].idGiornale;
-                                let articolo = new articoloModel(undefined, title, abstract, doi, issn, isbn, year, 2, idgiornale);
+                                let articolo = new articoloModel(undefined, title, abstract, doi, issn, isbn, year, 1, idgiornale);
                                 db.query(articolo.saveNew(), (err, data) => {
                                     if(err) {console.log(index +', Salvataggio articolo: '+err);}
                                     if(!err) {
@@ -362,7 +361,7 @@ function processRequest(e) {
 function processArticle(article_number, citaId) {
     return new Promise(function (resolve, reject) {
         var xhr = new XMLHttpRequest();
-        let article_ret_url = 'http://ieeexploreapi.ieee.org/api/v1/search/articles?apikey=esvghg4gbrwh36tzev6xumhs&format=json&max_records=25&start_record=1&sort_order=asc&sort_field=article_number&article_number='+article_number;
+        let article_ret_url = 'http://ieeexploreapi.ieee.org/api/v1/search/articles?apikey='+APIKEY+'&format=json&max_records=25&start_record=1&sort_order=asc&sort_field=article_number&article_number='+article_number;
         xhr.open('GET', article_ret_url);
         xhr.onreadystatechange = function () {
             if (this.status == 200 && this.readyState == 4) {
@@ -372,19 +371,19 @@ function processArticle(article_number, citaId) {
                 let doi = element["doi"];
                 let issn;
                 if (element["issn"] == null) {
-                    issn = "assente";  
+                    issn = "";  
                 } else {
                     issn = element["issn"];
                 }
                 let isbn;
                 if (element["isbn"] == null) {
-                    isbn = "mancante";  
+                    isbn = "";  
                 } else {
                     isbn = element["isbn"];
                 }
                 let abstract;
                 if (element["abstract"] == null) {
-                    abstract = "non presente";  
+                    abstract = "";  
                 } else {
                     abstract = element["abstract"].replace(regex, escaper);
                 }
@@ -399,7 +398,7 @@ function processArticle(article_number, citaId) {
                             db.query(giornale.getGiornaleByTitolo(), (err, data)=> {
                                 if(!err) {
                                     let idgiornale = data[0].idGiornale;
-                                    let articolo = new articoloModel(undefined, title, abstract, doi, issn, isbn, year, 2, idgiornale);
+                                    let articolo = new articoloModel(undefined, title, abstract, doi, issn, isbn, year, 1, idgiornale);
                                     db.query(articolo.saveNew(), (err, data) => {
                                         if(err) {console.log('Salvataggio articolo: '+err);}
                                         if(!err) {
@@ -739,9 +738,6 @@ async function getSingleRef(page) {
                     if (refloc == true) {
                         await page.waitForSelector('div.ref-links-container', {timeout: 0});
                         const num_ref = await page.evaluate(() => {
-                            console.log(document.getElementsByClassName('ref-links-container'));
-                            console.log(document.getElementsByClassName('ref-links-container').length);
-                            console.log(document.getElementsByClassName('ref-links-container').length/2);
                             return document.getElementsByClassName('ref-links-container').length/2;
                         });
                         let found = 0;
@@ -789,17 +785,17 @@ async function getSingleRef(page) {
 }
 
 
-/*
-const apiurl = 'http://ieeexploreapi.ieee.org/api/v1/search/articles?apikey=esvghg4gbrwh36tzev6xumhs&format=json&max_records=10&start_record=1&sort_order=asc&sort_field=article_number&article_title=remote+laboratory'
+//1a fase
+const apiurl = 'http://ieeexploreapi.ieee.org/api/v1/search/articles?apikey='+APIKEY+'&format=json&max_records=30&start_record=1&sort_order=asc&sort_field=article_number&article_title=remote+laboratory'
 db.open();
 req.open('GET', apiurl, true);
 req.send();
 req.onreadystatechange = processRequest;
-*/
-
+/*
+//2a fase
 db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
     await getSingleRef(page);
-})();
+})();*/

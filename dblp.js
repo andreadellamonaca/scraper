@@ -40,7 +40,7 @@ request(options, function (error, response, body) {
                     db.query(giornale.getGiornaleByTitolo(), (err, data)=> {
                         if(!err) {
                             let idgiornale = data[0].idGiornale;
-                            let articolo = new articoloModel(undefined, title, abstract, doi, 'assente', 'mancante', year, 2, idgiornale);
+                            let articolo = new articoloModel(undefined, title, abstract, doi, '', '', year, 1, idgiornale);
                             db.query(articolo.saveNew(), (err, data) => {
                                 if(err) {console.log('Salvataggio articolo: '+err);}
                                 if(!err) {
@@ -110,14 +110,14 @@ request(options, function (error, response, body) {
                 }
             });
         } else {
-            let conferenza = new conferenzaModel(undefined, pub_title, "assente", "mancante");
+            let conferenza = new conferenzaModel(undefined, pub_title, "", "");
             db.query(conferenza.saveNew(), (err, data) => {
                 if(err) {console.log('Salvataggio conferenza: '+err);}
                 if(!err) {
                     db.query(conferenza.getConferenzaByNome(), (err, data)=> {
                         if(!err) {
                             let idconferenza = data[0].idConferenza;
-                            let articolo = new articoloModel(undefined, title, abstract, doi, 'assente', 'mancante', year, idconferenza, 1);
+                            let articolo = new articoloModel(undefined, title, abstract, doi, '', '', year, idconferenza, 1);
                             db.query(articolo.saveNew(), (err, data) => {
                                 if(err) {console.log('Salvataggio articolo: '+err);}
                                 if(!err) {

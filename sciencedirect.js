@@ -7,6 +7,7 @@ const scrittodaModel = require('./query/queries_scrittoda');
 const presenteinModel = require('./query/queries_presentein');
 const relativoaModel = require('./query/queries_relativoa');
 const parolachiaveModel = require('./query/queries_parolachiave');
+let APIKEY = '7f59af901d2d86f78a1fd60c1bf9426a';
 const puppeteer = require('puppeteer');
 
 var regex = new RegExp(/[\0\x08\x09\x1a\n\r"'\\\%]/g)
@@ -19,7 +20,7 @@ var escaper = function escaper(char){
 function getAbstractbyDOI (doi) {
     return new Promise(function (resolve, reject) {
       var xhr = new XMLHttpRequest();
-      let abstract_ret_url = 'https://api.elsevier.com/content/article/doi/'+doi+'?apiKey=7f59af901d2d86f78a1fd60c1bf9426a&httpAccept=application%2Fjson';
+      let abstract_ret_url = 'https://api.elsevier.com/content/article/doi/'+doi+'?apiKey='+APIKEY+'&httpAccept=application%2Fjson';
       xhr.open('GET', abstract_ret_url);
       xhr.onreadystatechange = function () {
         if (this.status == 200 && this.readyState == 4) {
@@ -43,7 +44,7 @@ function processRequest(e) {
                 let title = element["dc:title"].replace(regex, escaper);
                 let year = element["prism:coverDate"].split("-")[0];
                 let doi = element["prism:doi"];
-                let articolo = new articoloModel(undefined, title, abstract, doi, "assente", "mancante", year, 2, 1);
+                let articolo = new articoloModel(undefined, title, abstract, doi, "", "", year, 1, 1);
                 db.query(articolo.saveNew(), (err, data) => {
                     if(err) {console.log(index +', Salvataggio articolo: '+err);}
                     if(!err) {
@@ -154,17 +155,20 @@ async function getKW(page) {
         }
     });
 }
-/*
-const apiurl = 'https://api.elsevier.com/content/search/sciencedirect?query=remote%20laboratory&apiKey=7f59af901d2d86f78a1fd60c1bf9426a&count=20'
+
+//1a fase
+
+const apiurl = 'https://api.elsevier.com/content/search/sciencedirect?query=remote%20laboratory&apiKey='+APIKEY+'&count=20';
 db.open();
 req.open('GET', apiurl, true);
 req.send();
 req.onreadystatechange = processRequest;
-*/
+/*
 
+//2a fase
 db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
     await getKW(page);
-})();
+})();*/

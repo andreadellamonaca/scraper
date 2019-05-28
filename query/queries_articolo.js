@@ -19,7 +19,7 @@ class Articolo {
 
     saveNew() {
         let sql =`INSERT INTO articolo(Titolo, Abstract, DOI, ISSN, ISBN, AnnoPubblicazione, idConferenzaPresentazione, idGiornale)
-        SELECT * FROM (SELECT '${this.titolo}', '${this.abstract}', '${this.doi}', '${this.issn}', '${this.isbn}', '${this.anno}', '${this.idconferenza}', '${this.idgiornale}' AS res) AS tmp
+        SELECT * FROM (SELECT '${this.titolo}' as Title, '${this.abstract}' as Abstract, '${this.doi}' as doi, '${this.issn}' as issn, '${this.isbn}' as isbn, '${this.anno}' as year, '${this.idconferenza}' as id_conf, '${this.idgiornale}' as id_journal) AS tmp
         WHERE NOT EXISTS (
             SELECT Titolo, AnnoPubblicazione FROM articolo WHERE Titolo = '${this.titolo}' AND AnnoPubblicazione = '${this.anno}'
         ) LIMIT 1`;

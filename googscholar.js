@@ -1,7 +1,5 @@
-const rp = require('request-promise');
 const url = 'https://scholar.google.it/scholar?hl=it&as_sdt=0%2C5&q=remote+laboratory&btnG=';
 //const url = 'https://scholar.google.it/scholar?start=10&q=remote+laboratory&hl=it&as_sdt=0,5';
-const $ = require('cheerio');
 const puppeteer = require('puppeteer');
 const db = require("./dbConnection");
 const autoreModel = require('./query/queries_autore');
@@ -62,7 +60,7 @@ async function get(page) {
     console.log(autori);
     console.log('-------------------');
 
-    let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "assente", "mancante", year, 2, 1);
+    let articolo = new articoloModel(undefined, title.replace(regex, escaper), abstract.replace(regex, escaper), "", "", "", year, 1, 1);
     db.query(articolo.saveNew(), (err, data) => {
       if(err) {console.log(i +', Salvataggio articolo: '+err);}
       if(!err) {

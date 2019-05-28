@@ -1,6 +1,7 @@
 const db = require("./dbConnection");
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 var req = new XMLHttpRequest();
+let APIKEY = '7f59af901d2d86f78a1fd60c1bf9426a';
 const puppeteer = require('puppeteer');
 const autoreModel = require('./query/queries_autore');
 const articoloModel = require('./query/queries_articolo');
@@ -34,12 +35,10 @@ async function getRef(browser, page) {
                 let ref_url = await page.evaluate((ind) => {
                     return document.getElementsByClassName('refCont')[ind].childNodes[3].childNodes[1].href;
                 }, j);
-                console.log(ref_url);
                 if (!(ref_url == undefined)) {
                     let title = await page.evaluate((ind) => {
                         return document.getElementsByClassName('refCont')[ind].childNodes[3].innerText;
                     }, j);
-                    console.log(title);
                     let year = await page.evaluate((ind) => {
                         return document.getElementsByClassName('refCont')[ind].childNodes[6].textContent.replace(') ', '').replace('(', '');
                     }, j);
@@ -47,7 +46,7 @@ async function getRef(browser, page) {
                     await refpage.goto(ref_url, {waitUntil: 'load', timeout: 0});
                     let pub_title = await refpage.evaluate(() => {
                         if (document.getElementById('publicationTitle') == undefined) {
-                            return null;
+                            return "None";
                         } else {
                             return document.getElementById('publicationTitle').innerText;   
                         }
@@ -74,28 +73,24 @@ async function getRef(browser, page) {
                         }
                     });
                     if (issn == null) {
-                        issn = "assente";  
+                        issn = "";  
                     }
                     if (isbn == null) {
-                        isbn = "mancante";  
+                        isbn = "";  
                     }
                     let content_type = await refpage.evaluate(() => {
                         return document.getElementById('documentInfo').childNodes[3].innerText.replace('Document Type: ', '');
                     });
         
                     if (content_type.includes('Article')) {
-                        /*if (pub_title == null) {
-                            let giornale = new giornaleModel(undefined, "None");
-                        } else {*/
-                            let giornale = new giornaleModel(undefined, pub_title);   
-                        //}
+                        let giornale = new giornaleModel(undefined, pub_title);   
                         db.query(giornale.saveNew(), (err, data) => {
                             if(err) {console.log(index +', Salvataggio giornale: '+err);}
                             if(!err) {
                                 db.query(giornale.getGiornaleByTitolo(), (err, data)=> {
                                     if(!err) {
                                         let idgiornale = data[0].idGiornale;
-                                        let articolo = new articoloModel(undefined, title, "", doi, issn, isbn, year, 2, idgiornale);
+                                        let articolo = new articoloModel(undefined, title, "", doi, issn, isbn, year, 1, idgiornale);
                                         db.query(articolo.saveNew(), (err, data) => {
                                             if(err) {console.log(index +', Salvataggio articolo: '+err);}
                                             if(!err) {
@@ -132,11 +127,7 @@ async function getRef(browser, page) {
                             }
                         });
                     } else if(content_type.includes('Conference')){
-                        /*if (pub_title == null) {
-                            let conferenza = new conferenzaModel(undefined, "None", "assente", "mancante");
-                        } else {*/
-                            let conferenza = new conferenzaModel(undefined, pub_title, "assente", "mancante");
-                        //}
+                        let conferenza = new conferenzaModel(undefined, pub_title, "", "");
                         db.query(conferenza.saveNew(), (err, data) => {
                             if(err) {console.log(index +', Salvataggio conferenza: '+err);}
                             if(!err) {
@@ -284,20 +275,20 @@ async function processRequest(e) {
     if (req.readyState == 4 && req.status == 200) {
         const browser = await puppeteer.launch({headless: false});
         var response = JSON.parse(req.responseText)["search-results"]["entry"];
-        for (let index = 0; index < 1/*response.length*/; index++) {
+        for (let index = 0; index < 10/*response.length*/; index++) {
             const element = response[index];
             let title = element["dc:title"].replace(regex, escaper);
             let year = element["prism:coverDate"].split("-")[0];
             let pub_title = element["prism:publicationName"];
             let doi = element["prism:doi"];
             if (element["prism:issn"] == null) {
-                issn = "assente";  
+                issn = "";  
             } else {
                 issn = element["prism:issn"];
             }
             let isbn;
             if (element["prism:isbn"] == null) {
-                isbn = "mancante";  
+                isbn = "";  
             } else {
                 isbn = element["prism:isbn"][0]["$"];
             }
@@ -310,7 +301,7 @@ async function processRequest(e) {
                         db.query(giornale.getGiornaleByTitolo(), (err, data)=> {
                             if(!err) {
                                 let idgiornale = data[0].idGiornale;
-                                let articolo = new articoloModel(undefined, title, "", doi, issn, isbn, year, 2, idgiornale);
+                                let articolo = new articoloModel(undefined, title, "", doi, issn, isbn, year, 1, idgiornale);
                                 db.query(articolo.saveNew(), (err, data) => {
                                     if(err) {console.log(index +', Salvataggio articolo: '+err);}
                                     if(!err) {
@@ -341,7 +332,7 @@ async function processRequest(e) {
                     }
                 });
             } else if(content_type.includes('Conference')){
-                let conferenza = new conferenzaModel(undefined, pub_title, "assente", "mancante");
+                let conferenza = new conferenzaModel(undefined, pub_title, "", "");
                 db.query(conferenza.saveNew(), (err, data) => {
                     if(err) {console.log(index +', Salvataggio conferenza: '+err);}
                     if(!err) {
@@ -382,16 +373,21 @@ async function processRequest(e) {
         }
     }
 }
-/*
-const apiurl = 'https://api.elsevier.com/content/search/scopus?query=remote%20laboratory&apiKey=7f59af901d2d86f78a1fd60c1bf9426a'
+
+//1a fase
+
+const apiurl = 'https://api.elsevier.com/content/search/scopus?query=remote%20laboratory&apiKey='+APIKEY;
 db.open();
 req.open('GET', apiurl, true);
 req.send();
-req.onreadystatechange = processRequest;*/
+req.onreadystatechange = processRequest;
+/*
+
+//2a fase
 
 db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
     await getRef(browser, page);
-})();
+})();*/
