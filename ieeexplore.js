@@ -785,14 +785,14 @@ async function getSingleRef(page) {
 }
 
 
-//1a fase
+//prima fase
 const apiurl = 'http://ieeexploreapi.ieee.org/api/v1/search/articles?apikey='+APIKEY+'&format=json&max_records=30&start_record=1&sort_order=asc&sort_field=article_number&article_title=remote+laboratory'
 db.open();
 req.open('GET', apiurl, true);
 req.send();
 req.onreadystatechange = processRequest;
 /*
-//2a fase
+//seconda fase
 db.open();
 (async () => {
     const browser = await puppeteer.launch({headless: false});
